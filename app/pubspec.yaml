@@ -1,0 +1,54 @@
+name: matricquest_sa
+description: "MatricQuest SA — CAPS-aligned, gamified Grade 12 study companion for South Africa."
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.13.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State management & navigation. Plain (non-codegen) Riverpod providers only — see
+  # docs/CONTINUATION.md for why *_generator/build_runner tooling is deferred (Dart 3.13 SDK
+  # sources use newer syntax than any currently-published analyzer version compatible with
+  # build_resolvers can parse — an upstream ecosystem gap, not something fixable from here).
+  flutter_riverpod: ^2.6.1
+  go_router: ^15.1.2
+
+  # Backend
+  supabase_flutter: ^2.8.0
+
+  # Offline-first local storage: hand-written access via package:sqlite3 (no code generation
+  # needed — see docs/CONTINUATION.md "Drift deferred" note). This satisfies section 3's
+  # "Drift or an equally reliable SQLite-based solution" explicitly.
+  sqlite3: ^2.9.0
+  sqlite3_flutter_libs: ^0.5.31
+  path_provider: ^2.1.5
+  path: ^1.9.1
+
+  # Secure local storage (auth session, never plain SharedPreferences)
+  flutter_secure_storage: ^9.2.4
+
+  # Connectivity-aware sync
+  connectivity_plus: ^6.1.3
+
+  # Misc utilities
+  uuid: ^4.5.1
+  crypto: ^3.0.6
+  intl: ^0.20.2
+  timezone: ^0.10.0
+  cupertino_icons: ^1.0.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  integration_test:
+    sdk: flutter
+
+  flutter_lints: ^6.0.0
+  mocktail: ^1.0.4
+
+flutter:
+  uses-material-design: true

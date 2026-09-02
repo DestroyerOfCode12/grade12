@@ -1,0 +1,41 @@
+# Secrets — never commit real values
+.env
+.env.local
+*.local.json
+env.json
+supabase/.env
+supabase/.env.local
+app/android/key.properties
+app/android/app/*.jks
+app/android/app/*.keystore
+app/ios/Runner/GoogleService-Info.plist
+app/android/app/google-services.json
+
+# Flutter / Dart
+app/.dart_tool/
+app/.flutter-plugins
+app/.flutter-plugins-dependencies
+app/.packages
+app/build/
+app/**/generated_plugin_registrant.dart
+app/*.iml
+
+# Android
+app/android/.gradle/
+app/android/local.properties
+app/android/**/gradle-wrapper.jar
+
+# iOS
+app/ios/Pods/
+app/ios/.symlinks/
+app/ios/Flutter/flutter_export_environment.sh
+app/ios/Runner.xcworkspace/xcuserdata/
+
+# Coverage / test output
+app/coverage/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local dev tooling downloaded outside the repo (Flutter SDK lives in ~/dev, not here)

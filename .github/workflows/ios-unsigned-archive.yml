@@ -1,0 +1,52 @@
+name: iOS unsigned archive validation
+
+# Confirms the iOS target still builds on real Apple toolchain. This produces an UNSIGNED archive
+# only — it proves the code compiles for iOS, not a distributable IPA. Producing a real IPA needs
+# an Apple Developer account, a signing certificate, and a provisioning profile, none of which
+# exist in this repository or CI by design (see docs/ADR.md §2.8 and docs/SETUP.md).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  FLUTTER_VERSION: "3.47.2"
+
+jobs:
+  ios-archive:
+    name: Unsigned iOS archive
+    runs-on: macos-14
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+
+      - name: Build iOS in release mode, no codesign
+        run: flutter build ios --release --no-codesign
+
+      - name: Archive with xcodebuild (no code signing)
+        run: |
+          xcodebuild -workspace ios/Runner.xcworkspace \
+            -scheme Runner \
+            -sdk iphoneos \
+            -configuration Release \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            -archivePath build/Runner.xcarchive \
+            archive
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: matricquest-ios-unsigned-archive
+          path: app/build/Runner.xcarchive

@@ -1,0 +1,128 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  FLUTTER_VERSION: "3.47.2"
+
+jobs:
+  analyze-and-test:
+    name: Analyze, format check, unit/widget tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - run: flutter --version
+      - run: flutter pub get
+
+      - name: Verify formatting
+        run: dart format --output=none --set-exit-if-changed .
+
+      - name: Static analysis
+        run: flutter analyze --fatal-infos
+
+      - name: Unit and widget tests (with coverage)
+        run: flutter test --coverage
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-lcov
+          path: app/coverage/lcov.info
+
+  android-debug-build:
+    name: Android debug APK
+    needs: analyze-and-test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - run: flutter pub get
+
+      - name: Build debug APK
+        run: flutter build apk --debug
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: matricquest-debug-apk
+          path: app/build/app/outputs/flutter-apk/app-debug.apk
+
+  android-release-bundle:
+    name: Android release AAB (unsigned unless secrets present)
+    needs: analyze-and-test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - run: flutter pub get
+
+      # Signing config is intentionally NOT wired up here. Populate android/key.properties
+      # (see docs/SETUP.md) and the matching GitHub Secrets, then extend this step, before
+      # relying on this job for a Play Store submission build.
+      - name: Build release AAB (unsigned)
+        run: flutter build appbundle --release
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: matricquest-release-aab-unsigned
+          path: app/build/app/outputs/bundle/release/app-release.aab
+
+  supabase-sql-lint:
+    name: Lint Supabase SQL migrations
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check migration files are sequentially numbered and parse without obvious syntax errors
+        run: |
+          cd supabase/migrations
+          prev=0
+          for f in $(ls *.sql | sort); do
+            num=$(echo "$f" | grep -oE '^[0-9]+')
+            if [ "$num" -le "$prev" ]; then
+              echo "Migration ordering error at $f"; exit 1
+            fi
+            prev=$num
+          done
+          echo "Migration ordering OK: $(ls *.sql | wc -l) files"
