@@ -11,9 +11,9 @@ anything already complete. Written 2026-09-02, end of the first build session.
 - Android SDK partially present (`build-tools`, `platforms`, `platform-tools`) but no
   `cmdline-tools`; `flutter doctor --android-licenses` has not been run.
 - No macOS available — iOS cannot be built or run locally here; only CI's macOS runner can.
-- **This sandbox blocks the Gradle daemon's loopback socket.** `app/android/gradle.properties` sets
-  `org.gradle.daemon=false` to work around it — safe to remove on a normal dev machine/CI runner
-  where this doesn't apply, but harmless to leave.
+- **This machine blocks Java/Gradle's loopback socket** (see "Android debug APK" below) —
+  confirmed environment-specific by building successfully on GitHub Actions instead. Not a
+  project-config problem; nothing to fix in the repo itself.
 
 ## What is DONE and VERIFIED (commands actually run, output actually checked)
 
@@ -38,20 +38,23 @@ anything already complete. Written 2026-09-02, end of the first build session.
 - `flutter test` → **17/17 passing** (verified): `streak_calculator_test.dart` (6),
   `mastery_calculator_test.dart` (7), `gamification_repository_test.dart` (3),
   `widget_test.dart` (1 end-to-end guest-mode flow test).
-- `flutter build apk --debug` — **attempted 5 times, did not succeed on this machine.** Every
-  attempt fails fast (~6s) with `java.io.IOException: Unable to establish loopback connection`
-  from Gradle's Tooling API / native-platform library. Verified this is NOT an app-code or even a
-  Gradle-config issue: raw OS-level loopback TCP was tested directly (.NET `TcpListener`/
-  `TcpClient` on 127.0.0.1) and works fine on this machine — the block is JVM-specific, most
-  likely endpoint security software on this managed/AzureAD-joined Windows machine intercepting
-  Java's socket calls. Tried and ruled out: `org.gradle.daemon=false`, `org.gradle.vfs.watch=false`,
-  `-Djava.net.preferIPv4Stack=true`, running with sandbox restrictions lifted. None fixed it — all
-  five failures are byte-for-byte the same error. **This has never been confirmed to produce a
-  working APK.** `android/gradle.properties` keeps those three settings anyway (harmless
-  elsewhere) with a comment explaining they didn't help, so the next session doesn't waste time
-  re-trying the same three things. First thing to check on a different machine or in CI (which
-  should not have this restriction): does `flutter build apk --debug` even get past Gradle's
-  initial connection at all.
+- `flutter build apk --debug` — **fails locally on this machine** (5 attempts, all the same
+  `java.io.IOException: Unable to establish loopback connection` from Gradle's Tooling API /
+  native-platform library, ~6s in). Confirmed NOT an app-code or Gradle-config issue: raw
+  OS-level loopback TCP works fine here (tested directly with .NET `TcpListener`/`TcpClient`), so
+  the block is JVM-specific — almost certainly endpoint security software on this
+  managed/AzureAD-joined Windows machine intercepting Java's socket calls. Tried and ruled out as
+  fixes: `org.gradle.daemon=false`, `org.gradle.vfs.watch=false`, `-Djava.net.preferIPv4Stack=true`,
+  running with sandbox restrictions lifted — kept in `android/gradle.properties` anyway (harmless)
+  but none of them were the actual fix.
+- **Verified working on GitHub Actions** (pushed to
+  https://github.com/DestroyerOfCode12/grade12, run
+  [33642738884](https://github.com/DestroyerOfCode12/grade12/actions/runs/33642738884)): the
+  `android-debug-build` and `android-release-bundle` jobs both **succeeded**, ~4.5 min each,
+  producing real `app-debug.apk` / `app-release.aab` artifacts — confirming this was purely a
+  local-machine JVM/network restriction, not a defect in the app, Gradle config, or CI workflow.
+  The `ios-unsigned-archive.yml` workflow (run 33642738877) also **succeeded** on GitHub's macOS
+  runner. All three platform builds are now CI-verified from a clean checkout.
 - Vertical slice screens implemented and reachable via real navigation: splash → subject selection
   → home dashboard → all subjects → lesson (10-block structure, "explain more simply" toggle) →
   checkpoint quiz (MCQ, correctness shown with icon+colour+text) → results (XP/streak) → papers

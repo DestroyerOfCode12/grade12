@@ -20,11 +20,12 @@ what's stubbed, and what's next. Do not present this build to end users as featu
   dashboard → lesson → checkpoint quiz → XP/streak → results → past-papers library.
 - **AI tutor scaffold**: `supabase/functions/quest-coach` — provider-independent, retrieval-grounded,
   rate-limited, with a zero-cost local stub when no API key is configured.
-- **CI**: GitHub Actions workflows for analyze/format/test/Android debug+release build, plus a
-  macOS unsigned-iOS-archive workflow. *Not yet run on a real GitHub Actions runner* — the Android
-  build could not be verified locally either (this dev machine blocks Gradle's loopback socket at
-  the JVM level, unrelated to the app; see `docs/SETUP.md` §6 and `CONTINUATION.md`). Verify the
-  `ci.yml` Android build job succeeds on an actual CI run before trusting it.
+- **CI**: GitHub Actions — analyze/format/test, SQL lint, Android debug + release build, and a
+  macOS unsigned-iOS-archive workflow. **All verified green** on
+  [github.com/DestroyerOfCode12/grade12](https://github.com/DestroyerOfCode12/grade12/actions):
+  every job passed, including both Android build jobs, which could not be verified on the local
+  dev machine (JVM-level loopback-socket restriction, unrelated to the app — see `docs/SETUP.md`
+  §6 and `CONTINUATION.md`).
 - **Docs**: architecture decision record, data model, threat model, privacy policy draft, terms of
   use draft, Play Store data-safety and Apple privacy-label checklists.
 

@@ -99,7 +99,9 @@ PowerShell) while every Gradle invocation fails the same way is the tell. `org.g
 `org.gradle.vfs.watch=false`, and `-Djava.net.preferIPv4Stack=true` (already set in
 `app/android/gradle.properties`) did **not** fix it here. If you hit this: try a different network
 (off VPN/corporate network), check endpoint security / firewall exceptions for `java.exe` and
-`gradle`, or just build on CI instead — GitHub Actions runners don't have this restriction.
+`gradle`, or just build on CI instead — confirmed GitHub Actions runners don't have this
+restriction (`android-debug-build`/`android-release-bundle` both passed there, ~4.5 min each,
+producing real `.apk`/`.aab` artifacts — see the Actions run linked from `CONTINUATION.md`).
 
 ## 7. Known environment gotcha: Drift/build_runner and Dart 3.13
 
