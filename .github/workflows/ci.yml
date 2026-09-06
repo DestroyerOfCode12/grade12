@@ -109,6 +109,61 @@ jobs:
           name: matricquest-release-aab-unsigned
           path: app/build/app/outputs/bundle/release/app-release.aab
 
+  admin-analyze-and-test:
+    name: Admin dashboard — analyze, format check, tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: admin
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+
+      - name: Verify formatting
+        run: dart format --output=none --set-exit-if-changed .
+
+      - name: Static analysis
+        run: flutter analyze --fatal-infos
+
+      - name: Unit and widget tests
+        run: flutter test
+
+  admin-web-build:
+    name: Admin dashboard — web build (unconfigured, compile check only)
+    needs: admin-analyze-and-test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: admin
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+
+      # Built with no --dart-define values, matching "local dev mode" for this app (see
+      # admin/.env.example) — proves the web target compiles; a real deployment needs
+      # SUPABASE_URL/SUPABASE_ANON_KEY supplied at build time and its own hosting step.
+      - name: Build web (no backend configured)
+        run: flutter build web --release
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: matricquest-admin-web-unconfigured
+          path: admin/build/web
+
   supabase-sql-lint:
     name: Lint Supabase SQL migrations
     runs-on: ubuntu-latest

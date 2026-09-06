@@ -50,7 +50,34 @@ quiz → XP → papers vertical slice with no external service at all.
    ```
    Never pass the `service_role` key here — it belongs only in Edge Function secrets (§4).
 
-## 3. Configure the Quest Coach AI tutor (optional)
+## 3. Run the staff admin dashboard (section 12)
+
+Unlike the mobile app, `admin/` has no local-dev-mode fallback — it exists to edit real backend
+data, so it needs a real Supabase project (§2) plus at least one staff account:
+
+1. Create a Storage bucket named `papers` in the Supabase dashboard (private; the Papers screen
+   uploads question papers/memoranda/addenda there and reads them back via signed URLs).
+2. Create your own auth user (Supabase dashboard → Authentication → Add user, or sign up through
+   any client), then promote it to staff directly in SQL (there is no admin yet to click a button
+   for the very first admin):
+   ```sql
+   update profiles set role = 'admin' where id = '<your-auth-user-id>';
+   ```
+   Every role change after this first one should go through `admin_set_user_role()` from inside
+   the dashboard (Users & roles screen) instead, so it's audited.
+3. Run it:
+   ```bash
+   cd admin
+   flutter pub get
+   flutter run -d chrome \
+     --dart-define=SUPABASE_URL=https://<your-ref>.supabase.co \
+     --dart-define=SUPABASE_ANON_KEY=<your-anon-key>
+   ```
+
+See [`admin/README.md`](../admin/README.md) for what the dashboard covers today vs. what's still
+missing.
+
+## 4. Configure the Quest Coach AI tutor (optional)
 
 The Edge Function at `supabase/functions/quest-coach` runs a `LocalStubProvider` (zero external
 calls, zero cost) until an API key is set:
@@ -62,22 +89,22 @@ supabase secrets set --env-file .env.local
 supabase functions deploy quest-coach
 ```
 
-## 4. Server secrets vs. client config — what goes where
+## 5. Server secrets vs. client config — what goes where
 
 | Secret | Lives in | Never in |
 |---|---|---|
-| `SUPABASE_ANON_KEY` / publishable key | `--dart-define` at build time | committed source |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase Edge Function secrets | the mobile app, ever |
+| `SUPABASE_ANON_KEY` / publishable key | `--dart-define` at build time (app **and** admin) | committed source |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase Edge Function secrets | the mobile app or admin dashboard, ever |
 | `ANTHROPIC_API_KEY` | Supabase Edge Function secrets | the mobile app, ever |
 | Android signing key | `app/android/key.properties` (gitignored) + CI secret | committed source |
 
-## 5. Running tests
+## 6. Running tests
 
 ```bash
-cd app
-flutter analyze          # must be clean before committing
-dart format --set-exit-if-changed .
-flutter test              # unit + widget tests
+cd app       # or: cd admin
+flutter analyze --fatal-infos   # must be clean before committing
+dart format --output=none --set-exit-if-changed .
+flutter test                     # unit + widget tests
 ```
 
 Backend RLS/idempotency tests (`supabase/tests/rls_and_idempotency_test.sql`) need a local
@@ -89,7 +116,7 @@ supabase start
 supabase test db
 ```
 
-## 6. Known environment gotcha: Gradle "Unable to establish loopback connection"
+## 7. Known environment gotcha: Gradle "Unable to establish loopback connection"
 
 If `flutter build apk` fails immediately with `java.io.IOException: Unable to establish loopback
 connection`, this is a JVM-level socket restriction (commonly endpoint security software on a
@@ -103,7 +130,7 @@ PowerShell) while every Gradle invocation fails the same way is the tell. `org.g
 restriction (`android-debug-build`/`android-release-bundle` both passed there, ~4.5 min each,
 producing real `.apk`/`.aab` artifacts — see the Actions run linked from `CONTINUATION.md`).
 
-## 7. Known environment gotcha: Drift/build_runner and Dart 3.13
+## 8. Known environment gotcha: Drift/build_runner and Dart 3.13
 
 If you re-add Drift or any `build_runner`-based code generator (freezed, json_serializable,
 riverpod_generator), you may hit:

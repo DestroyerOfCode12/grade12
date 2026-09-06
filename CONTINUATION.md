@@ -2,7 +2,8 @@
 
 **Read this before continuing work.** It records exactly what is done, tested, and verified vs.
 what is stubbed or missing, so the next session can continue without re-deriving or re-building
-anything already complete. Written 2026-09-02, end of the first build session.
+anything already complete. Written 2026-09-02 (session 1), updated 2026-09-06 (session 2 — admin
+dashboard).
 
 ## Environment this was built in
 
@@ -81,6 +82,31 @@ anything already complete. Written 2026-09-02, end of the first build session.
   XP when it wasn't. Covered by `gamification_repository_test.dart`'s "retrying the same
   idempotency key does not double-award XP" test. If you touch this file, keep that test green.
 
+### Admin dashboard (session 2, `admin/`)
+- Flutter Web app implementing section 12's content-review workflow — see
+  [`admin/README.md`](admin/README.md) for exact screen-by-screen coverage. Not a stub: subjects,
+  topics, lessons (full 10-part block editor), questions (options + solution with the official-
+  memorandum/teaching-explanation split from section 6), review queue, content reports, past
+  papers (including real Supabase Storage file upload), users & roles (via the audited
+  `admin_set_user_role` RPC), and an admin-only audit log all have working CRUD screens.
+- `flutter analyze --fatal-infos` → **0 issues** (verified). `flutter test` → **12/12 passing**
+  (verified): `content_lifecycle_test.dart` (11 tests covering the publish-gate state machine) +
+  one widget smoke test (the "not connected" screen when no Supabase project is configured, since
+  this app — unlike `app/` — has no local dev mode).
+- `flutter build web` — **not yet run**, in this session or on CI. `admin-web-build` was added to
+  `.github/workflows/ci.yml` but no push has happened yet to confirm it passes. Check Actions
+  before assuming it works.
+- `ContentLifecycle` (`admin/lib/domain/services/content_lifecycle.dart`) is the enforced state
+  machine: draft → in_review → approved → published/rejected → archived, with `published` reachable
+  only from `approved`, and `canPublish()` additionally blocking anything `is_seed_demo_content` or
+  not `verified`/`source_recorded` — this is what makes "no one can publish merely by generating
+  content" (section 2/12) an enforced rule in the UI, not a convention. Every editor screen defers
+  to it rather than re-implementing the check.
+- Auth gating (`AuthGate`) is a UX convenience layered on top of RLS, not the real boundary — a
+  non-staff account reaching any screen would just see empty tables, since RLS already filters
+  every query. Verify this claim once a local Postgres stack exists (see pgTAP note above);
+  it was reasoned through, not tested end-to-end against a live database this session either.
+
 ## What is STUBBED (present but intentionally minimal)
 
 - **Papers Library / Paper Detail**: one demo record, no bundled PDF, no PDF viewer, no
@@ -95,14 +121,11 @@ anything already complete. Written 2026-09-02, end of the first build session.
 
 ## What is MISSING entirely (not started)
 
-- Admin/content-review web dashboard (section 12) — this was Phase 3 and the session ran out of
-  scope before reaching it. All the tables it needs (`review_tasks`, `content_versions`,
-  `content_reports`, the `content_status` lifecycle) exist and are exercised by the seed data, so
-  building the dashboard is a pure frontend task against an already-designed API.
-  - Recommended stack: same Supabase backend, a separate web app (Next.js or Flutter Web) — kept
-    out of the mobile app bundle per section 12's role-based-admin requirement.
-- Real past-paper ingestion pipeline (checksum verification, memo-association confidence scoring,
-  manual review queue UI).
+- Real past-paper ingestion pipeline: checksum computation/verification (files upload via the
+  admin dashboard now, but nothing hashes or verifies them yet), memo-association confidence
+  scoring beyond a manual "confirm" button, bulk import.
+- Admin-dashboard extras noted in `admin/README.md`: bulk operations, content-version rollback UI,
+  source-reference management UI, CAPS curriculum-version management UI.
 - Offline download management UI (Wi-Fi-only toggle, size warnings, storage management) — the
   `downloads` table and `learner_preferences.wifi_only_downloads`/`data_saver_mode` columns exist;
   no UI or actual file-download code yet.
@@ -124,16 +147,23 @@ anything already complete. Written 2026-09-02, end of the first build session.
 ## Recommended next session's order of work
 
 1. Get a local Supabase stack running (`supabase start`) and actually execute
-   `supabase/tests/rls_and_idempotency_test.sql` — this is the highest-priority unverified piece.
-2. Finish the Android release signing setup and get a real device install working end to end
+   `supabase/tests/rls_and_idempotency_test.sql` — this is the highest-priority unverified piece,
+   and it also verifies the admin dashboard's AuthGate assumption above.
+2. Push this session's admin-dashboard work and confirm the new `admin-analyze-and-test` /
+   `admin-web-build` CI jobs actually pass on GitHub Actions (same pattern as session 1's Android
+   build — verify on CI, don't assume).
+3. Finish the Android release signing setup and get a real device install working end to end
    against a live Supabase project (not local dev mode) — validates the full stack, not just the
    guest-mode local path.
-3. Build the admin dashboard's content-review workflow (Phase 3) — it unblocks real content growth
-   without more unverified AI-generated lessons.
-4. Only then: expand verified subject content, following section 2's manual-review requirement.
+4. Now that the admin dashboard exists: expand verified subject content through it, following
+   section 2's manual-review requirement — this was blocked on the dashboard existing; it no
+   longer is.
 
 ## Files worth reading first if you're resuming cold
 
 - [`docs/ADR.md`](docs/ADR.md), [`docs/DATA_MODEL.md`](docs/DATA_MODEL.md),
   [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md) — the "why," not just the "what."
-- [`docs/SETUP.md`](docs/SETUP.md) §6 — the Drift/analyzer gotcha, so you don't re-lose an hour to it.
+- [`docs/SETUP.md`](docs/SETUP.md) §7–8 — the Gradle-loopback and Drift/analyzer gotchas, so you
+  don't re-lose time to either.
+- [`admin/README.md`](admin/README.md) — exact coverage of the staff dashboard before you assume
+  a section-12 capability is missing and rebuild it.

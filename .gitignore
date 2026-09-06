@@ -34,6 +34,14 @@ app/ios/Runner.xcworkspace/xcuserdata/
 # Coverage / test output
 app/coverage/
 
+# Admin dashboard (Flutter Web)
+admin/.dart_tool/
+admin/.flutter-plugins
+admin/.flutter-plugins-dependencies
+admin/.packages
+admin/build/
+admin/*.iml
+
 # OS
 .DS_Store
 Thumbs.db
