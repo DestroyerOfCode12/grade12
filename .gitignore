@@ -46,4 +46,7 @@ admin/*.iml
 .DS_Store
 Thumbs.db
 
+# Local Claude Code session/runtime state — machine- and session-specific, never shared
+.claude/scheduled_tasks.lock
+
 # Local dev tooling downloaded outside the repo (Flutter SDK lives in ~/dev, not here)

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
 import '../../core/providers.dart';
 import '../../core/supabase/supabase_providers.dart';
@@ -8,9 +9,9 @@ import '../../core/theme/app_theme.dart';
 import '../../data/demo_content/demo_catalogue.dart';
 
 /// Section 11, screen 5. Section 9 lists what the dashboard must show; this vertical slice
-/// implements streak/XP/level, recommended next lesson, and a papers shortcut. Weak topics,
-/// upcoming study sessions, per-subject progress, and downloaded-content status are Phase 4
-/// items once mastery_scores/study_plans have real data flowing into them (docs/CONTINUATION.md).
+/// implements streak/XP/level, recommended next lesson, upcoming study sessions (screen 20), and
+/// a papers shortcut. Weak topics, per-subject progress, and downloaded-content status are Phase
+/// 4 items once mastery_scores has real signed-in data flowing into them (docs/CONTINUATION.md).
 class HomeDashboardScreen extends ConsumerWidget {
   const HomeDashboardScreen({super.key});
 
@@ -20,6 +21,7 @@ class HomeDashboardScreen extends ConsumerWidget {
     final outcome = ref
         .read(gamificationRepositoryProvider)
         .currentState(userId);
+    final upcomingAsync = ref.watch(_upcomingPreviewProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('MatricQuest SA')),
@@ -77,6 +79,65 @@ class HomeDashboardScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 24),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Upcoming study sessions',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              TextButton(
+                onPressed: () => context.go('/planner'),
+                child: const Text('View planner'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          upcomingAsync.when(
+            loading: () => const Padding(
+              padding: EdgeInsets.all(8),
+              child: LinearProgressIndicator(),
+            ),
+            error: (e, _) => Text('Could not load your plan: $e'),
+            data: (sessions) {
+              if (sessions.isEmpty) {
+                return Card(
+                  child: ListTile(
+                    leading: const Icon(
+                      Icons.auto_awesome_rounded,
+                      color: AppColors.primary,
+                    ),
+                    title: const Text('No study plan yet'),
+                    subtitle: const Text(
+                      'Get a personalised schedule based on your subjects.',
+                    ),
+                    trailing: const Icon(Icons.chevron_right_rounded),
+                    onTap: () => context.go('/planner'),
+                  ),
+                );
+              }
+              return Column(
+                children: [
+                  for (final session in sessions.take(3))
+                    Card(
+                      child: ListTile(
+                        dense: true,
+                        leading: const Icon(
+                          Icons.event_note_rounded,
+                          color: AppColors.primary,
+                        ),
+                        title: Text(session.topicTitle),
+                        subtitle: Text(
+                          '${DateFormat('EEE, d MMM').format(session.scheduledFor)} · ${session.durationMinutes} min',
+                        ),
+                        onTap: () => context.go('/planner'),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: 24),
           Text(
             'Study shortcuts',
             style: Theme.of(context).textTheme.titleMedium,
@@ -130,3 +191,7 @@ class HomeDashboardScreen extends ConsumerWidget {
     );
   }
 }
+
+final _upcomingPreviewProvider = FutureProvider(
+  (ref) => ref.read(studyPlanRepositoryProvider).fetchUpcoming(),
+);

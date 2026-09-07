@@ -5,6 +5,7 @@ import '../data/repositories/gamification_repository.dart';
 import '../data/repositories/lesson_repository.dart';
 import '../data/repositories/papers_repository.dart';
 import '../data/repositories/quiz_repository.dart';
+import '../data/repositories/study_plan_repository.dart';
 import '../data/repositories/subjects_repository.dart';
 import 'config/env.dart';
 import 'supabase/supabase_providers.dart';
@@ -51,6 +52,15 @@ final gamificationRepositoryProvider = Provider<GamificationRepository>((ref) {
   final client = ref.watch(supabaseClientProvider);
   final db = ref.watch(appDatabaseProvider);
   return GamificationRepository(client: client, db: db);
+});
+
+final studyPlanRepositoryProvider = Provider<StudyPlanRepository>((ref) {
+  final client = ref.watch(supabaseClientProvider);
+  final userId = ref.watch(currentUserIdProvider);
+  if (client != null && userId != null) {
+    return SupabaseStudyPlanRepository(client, userId);
+  }
+  return LocalStudyPlanRepository(ref.watch(appDatabaseProvider));
 });
 
 /// Learner's selected subjects, held in memory for the vertical slice. Persisted to

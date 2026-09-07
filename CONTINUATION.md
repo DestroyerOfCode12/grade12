@@ -3,7 +3,7 @@
 **Read this before continuing work.** It records exactly what is done, tested, and verified vs.
 what is stubbed or missing, so the next session can continue without re-deriving or re-building
 anything already complete. Written 2026-09-02 (session 1), updated 2026-09-06 (session 2 — admin
-dashboard).
+dashboard), updated 2026-09-07 (session 3 — study planner).
 
 ## Environment this was built in
 
@@ -93,9 +93,10 @@ dashboard).
   (verified): `content_lifecycle_test.dart` (11 tests covering the publish-gate state machine) +
   one widget smoke test (the "not connected" screen when no Supabase project is configured, since
   this app — unlike `app/` — has no local dev mode).
-- `flutter build web` — **not yet run**, in this session or on CI. `admin-web-build` was added to
-  `.github/workflows/ci.yml` but no push has happened yet to confirm it passes. Check Actions
-  before assuming it works.
+- `flutter build web` — **verified on GitHub Actions** (`admin-web-build` job, run 34023196842):
+  succeeded, including the previously-unrun web compile. `admin-analyze-and-test` also passed.
+  Both new CI jobs confirmed green on their first real run, alongside the app/backend jobs from
+  session 1 (Android debug/release, iOS archive, SQL lint) which also stayed green.
 - `ContentLifecycle` (`admin/lib/domain/services/content_lifecycle.dart`) is the enforced state
   machine: draft → in_review → approved → published/rejected → archived, with `published` reachable
   only from `approved`, and `canPublish()` additionally blocking anything `is_seed_demo_content` or
@@ -107,6 +108,30 @@ dashboard).
   every query. Verify this claim once a local Postgres stack exists (see pgTAP note above);
   it was reasoned through, not tested end-to-end against a live database this session either.
 
+### Study planner (session 3, `app/lib/features/planner/`)
+- Section 9's "generate a study plan" + section 11 screen 20. `StudyPlanGenerator`
+  (`app/lib/domain/services/study_plan_generator.dart`) is a pure, explainable spaced-repetition
+  scheduler: review interval is derived from each topic's `MasteryCalculator.labelFor()` (not
+  started → due immediately as a lesson; needs_work → every 2 days; developing → 4; on_track → 7;
+  strong → 14), sessions fill a daily time budget, and anything that doesn't fit a full day carries
+  over to the next day rather than being dropped. Covered by 9 unit tests (verified).
+- `StudyPlanRepository` — Supabase-backed (reads `topics` for the learner's selected subjects +
+  `mastery_scores` for the signed-in profile, writes `study_plans`/`study_sessions`) and a
+  local/guest mirror (`local_study_sessions` table added to `app_database.dart`) with the same
+  "not started" default for every topic, since guest mode doesn't track per-topic mastery yet.
+  Covered by 5 repository tests against the local path (verified) — the Supabase path's query
+  shape (`study_plans!inner(...)` embedded filter) has NOT been exercised against a real Postgres
+  instance yet; sanity-check it the same time you finally run the pgTAP suite.
+- `StudyPlannerScreen` (generate/regenerate, mark done/skip, deep-links into the demo lesson) plus
+  an "Upcoming study sessions" card on the Home dashboard. Reachable via `/planner`, not a bottom-
+  nav tab (matches the brief's own five-tab list). 1 widget smoke test (empty state) — verified.
+- `flutter analyze --fatal-infos`: 0 issues. `flutter test`: **32/32 passing** (up from 17 —
+  9 generator + 5 repository + 1 widget test added this session, all previous tests still green).
+- **Not built**: no UI takes a target exam date, term structure, or past-paper performance as
+  input yet — the generator accepts them as `TopicPlanInput`/parameters in principle (see that
+  file's doc comment) but nothing upstream computes or passes them in. Diagnostic-assessment
+  scores (still not implemented, see below) would be the natural first real input to add.
+
 ## What is STUBBED (present but intentionally minimal)
 
 - **Papers Library / Paper Detail**: one demo record, no bundled PDF, no PDF viewer, no
@@ -114,10 +139,8 @@ dashboard).
   faking it.
 - **"Play" bottom-nav tab**: placeholder screen. No Daily Challenge, no Boss Battle.
 - **Quest Coach**: Edge Function exists; no chat UI screen in the app yet.
-- **Study Planner**: `study_plans`/`study_sessions` tables exist; no screen, no plan-generation
-  logic.
 - **Diagnostic assessment**: not implemented — onboarding jumps straight from subject selection to
-  home.
+  home, so every topic starts a study plan at "not started" rather than a measured baseline.
 
 ## What is MISSING entirely (not started)
 
@@ -133,7 +156,12 @@ dashboard).
 - Achievements, Leaderboard, Boss Battle, Daily Challenge screens.
 - Privacy/export/delete-account screen and Help/content-reporting screen (backend tables
   `content_reports` exist; POPIA export/delete flow does not).
-- Spaced repetition scheduling logic (`mastery_scores.next_review_due_at` column exists, unused).
+- `mastery_scores.next_review_due_at` still isn't written by anything — the study planner
+  (session 3) computes its own review cadence from `mastery_estimate`/`attempts_count` directly
+  rather than reading/writing that column. Worth reconciling later: either the planner should
+  start writing `next_review_due_at` so other future features can read it, or the column should
+  be considered superseded by the planner's approach — pick one rather than letting both exist
+  unreconciled.
 - Full curriculum content beyond the one demo Mathematics topic — by design (section 2 forbids
   mass-generating unverified content); this needs a real content pipeline + reviewers, not more
   AI-generated seed data.
@@ -148,16 +176,18 @@ dashboard).
 
 1. Get a local Supabase stack running (`supabase start`) and actually execute
    `supabase/tests/rls_and_idempotency_test.sql` — this is the highest-priority unverified piece,
-   and it also verifies the admin dashboard's AuthGate assumption above.
-2. Push this session's admin-dashboard work and confirm the new `admin-analyze-and-test` /
-   `admin-web-build` CI jobs actually pass on GitHub Actions (same pattern as session 1's Android
-   build — verify on CI, don't assume).
-3. Finish the Android release signing setup and get a real device install working end to end
+   and it also verifies both the admin dashboard's AuthGate assumption and the study planner's
+   Supabase-backed query path (the `study_plans!inner(...)` embedded filter), neither of which has
+   touched a real Postgres instance yet.
+2. Finish the Android release signing setup and get a real device install working end to end
    against a live Supabase project (not local dev mode) — validates the full stack, not just the
    guest-mode local path.
-4. Now that the admin dashboard exists: expand verified subject content through it, following
+3. Now that the admin dashboard exists: expand verified subject content through it, following
    section 2's manual-review requirement — this was blocked on the dashboard existing; it no
-   longer is.
+   longer is. This would also give the study planner more than one topic to actually schedule.
+4. Build the diagnostic assessment (section 9) — it's the natural next real input into the study
+   planner's `TopicPlanInput.masteryEstimate`, replacing the current "every topic starts at zero"
+   default with an actual measured baseline.
 
 ## Files worth reading first if you're resuming cold
 

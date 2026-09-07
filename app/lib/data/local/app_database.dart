@@ -86,6 +86,25 @@ class AppDatabase {
         last_active_local_date TEXT,
         freeze_tokens INTEGER NOT NULL DEFAULT 0
       );
+
+      -- Guest-mode / offline mirror of study_plans + study_sessions (section 9/11, screen 20).
+      -- One row per profile marks which generated plan is "active"; regenerating replaces every
+      -- not-yet-completed session for that profile rather than accumulating stale plans, so a
+      -- learner never sees two conflicting schedules.
+      CREATE TABLE IF NOT EXISTS local_study_sessions (
+        id TEXT PRIMARY KEY,
+        profile_id TEXT NOT NULL,
+        subject_id TEXT NOT NULL,
+        topic_id TEXT NOT NULL,
+        topic_title TEXT NOT NULL,
+        scheduled_for TEXT NOT NULL,
+        duration_minutes INTEGER NOT NULL,
+        session_kind TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'scheduled',
+        completed_at TEXT
+      );
+      CREATE INDEX IF NOT EXISTS idx_local_study_sessions_profile_date
+        ON local_study_sessions (profile_id, scheduled_for);
     ''');
   }
 
@@ -161,6 +180,73 @@ class AppDatabase {
         lastActiveLocalDate,
         freezeTokens,
       ],
+    );
+  }
+
+  // ---------------------------------------------------------------------------------------
+  // Study planner (guest/offline mirror of study_plans + study_sessions)
+  // ---------------------------------------------------------------------------------------
+
+  /// Replaces every non-completed session for [profileId] with a freshly generated plan.
+  /// Completed sessions are kept (they're history, not a live schedule) so regenerating a plan
+  /// never erases what a learner has actually already done.
+  void replaceStudySessions(
+    String profileId,
+    List<Map<String, Object?>> sessions,
+  ) {
+    _db.execute(
+      "DELETE FROM local_study_sessions WHERE profile_id = ? AND status != 'completed'",
+      [profileId],
+    );
+    for (final s in sessions) {
+      _db.execute(
+        '''
+        INSERT INTO local_study_sessions
+          (id, profile_id, subject_id, topic_id, topic_title, scheduled_for, duration_minutes, session_kind, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'scheduled')
+        ''',
+        [
+          s['id'],
+          profileId,
+          s['subject_id'],
+          s['topic_id'],
+          s['topic_title'],
+          s['scheduled_for'],
+          s['duration_minutes'],
+          s['session_kind'],
+        ],
+      );
+    }
+  }
+
+  List<Map<String, Object?>> upcomingStudySessions(
+    String profileId, {
+    required String fromDateIso,
+  }) {
+    final result = _db.select(
+      "SELECT * FROM local_study_sessions WHERE profile_id = ? AND scheduled_for >= ? "
+      "AND status != 'completed' ORDER BY scheduled_for ASC",
+      [profileId, fromDateIso],
+    );
+    return result.toList();
+  }
+
+  bool hasAnyStudySessions(String profileId) {
+    final result = _db.select(
+      'SELECT 1 FROM local_study_sessions WHERE profile_id = ? LIMIT 1',
+      [profileId],
+    );
+    return result.isNotEmpty;
+  }
+
+  void updateStudySessionStatus(
+    String sessionId,
+    String status, {
+    String? completedAtIso,
+  }) {
+    _db.execute(
+      'UPDATE local_study_sessions SET status = ?, completed_at = ? WHERE id = ?',
+      [status, completedAtIso, sessionId],
     );
   }
 

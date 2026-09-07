@@ -9,16 +9,18 @@ import '../../features/onboarding/splash_screen.dart';
 import '../../features/onboarding/subject_selection_screen.dart';
 import '../../features/papers/paper_detail_screen.dart';
 import '../../features/papers/papers_library_screen.dart';
+import '../../features/planner/study_planner_screen.dart';
 import '../../features/profile/profile_screen.dart';
 import '../../features/quiz/quiz_screen.dart';
 import '../../features/subjects/all_subjects_screen.dart';
 import '../../widgets/app_shell.dart';
 
 /// Section 11's required screens are implemented as routes here. Not every screen in the full
-/// product brief has a route yet (Quest Coach chat UI, Study Planner calendar, Boss Battle,
-/// Achievements, Leaderboard, Downloads, Privacy/export/delete, Help — see docs/CONTINUATION.md
-/// for the tracked remainder). The five bottom-nav sections (Home/Learn/Papers/Play/Profile,
-/// section 11) are wired via [AppShell] with [StatefulShellRoute].
+/// product brief has a route yet (Quest Coach chat UI, Boss Battle, Achievements, Leaderboard,
+/// Downloads, Privacy/export/delete, Help — see docs/CONTINUATION.md for the tracked remainder).
+/// The five bottom-nav sections (Home/Learn/Papers/Play/Profile, section 11) are wired via
+/// [AppShell] with [StatefulShellRoute]; Study Planner (screen 20) is reached from Home rather
+/// than being its own bottom-nav tab, matching the brief's own list of five tabs.
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: '/splash',
@@ -103,6 +105,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/results',
         builder: (context, state) => ResultsScreen(outcome: state.extra),
+      ),
+      GoRoute(
+        path: '/planner',
+        builder: (context, state) => const StudyPlannerScreen(),
       ),
     ],
   );
