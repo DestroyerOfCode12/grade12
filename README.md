@@ -16,10 +16,12 @@ what's stubbed, and what's next. Do not present this build to end users as featu
   `grant_xp` / `submit_attempt` / `record_daily_activity` RPCs, an append-only audit log, and a
   role-escalation guard.
 - **Mobile app** (`app/`): Flutter + Riverpod + GoRouter, `flutter analyze --fatal-infos` clean,
-  32 automated tests passing (unit + widget). Guest-mode vertical slice: splash → subject
-  selection → home dashboard → lesson → checkpoint quiz → XP/streak → results → past-papers
-  library. Plus a study planner (section 9/11 screen 20): a spaced-repetition schedule generated
-  from each topic's mastery estimate, reachable from the home dashboard at `/planner`.
+  37 automated tests passing (unit + widget). Guest-mode vertical slice: splash → subject
+  selection → diagnostic assessment → home dashboard → lesson → checkpoint quiz → XP/streak →
+  results → past-papers library. Plus a study planner (section 9/11 screen 20): a
+  spaced-repetition schedule generated from each topic's mastery estimate — seeded by the
+  diagnostic where taken, "not started" otherwise — reachable from the home dashboard at
+  `/planner`.
 - **Admin dashboard** (`admin/`): Flutter Web, section 12's content-review workflow — subjects,
   topics/lessons (10-part block editor), questions/quizzes, review queue, content reports, past
   papers (with Storage file upload), users & roles, audit log. Publishing is gated by

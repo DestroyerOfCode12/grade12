@@ -168,10 +168,10 @@ class SupabaseStudyPlanRepository implements StudyPlanRepository {
   );
 }
 
-/// Local dev mode / guest mode: only the embedded demo Mathematics topic exists to schedule, and
-/// mastery is not yet tracked per-topic on-device (section 10/CONTINUATION.md — the local schema
-/// tracks XP/streak but not per-topic mastery), so every guest-mode plan starts every topic at
-/// "not started" honestly rather than guessing.
+/// Local dev mode / guest mode: only the embedded demo Mathematics topic exists to schedule.
+/// Mastery comes from `local_mastery_scores` (`app_database.dart`) — written by the diagnostic
+/// assessment if the learner took it, or the "not started" default otherwise, exactly matching
+/// what an unattempted topic would score via [MasteryCalculator.labelFor].
 class LocalStudyPlanRepository implements StudyPlanRepository {
   final AppDatabase db;
   static const _guestProfileId = 'guest';
@@ -201,16 +201,22 @@ class LocalStudyPlanRepository implements StudyPlanRepository {
     required int horizonDays,
     required int dailyMinutes,
   }) async {
-    final topics = <TopicPlanInput>[
-      if (selectedSubjectIds.contains(DemoCatalogue.mathematicsSubjectId))
-        const TopicPlanInput(
+    final topics = <TopicPlanInput>[];
+    if (selectedSubjectIds.contains(DemoCatalogue.mathematicsSubjectId)) {
+      final mastery = db.masteryScore(
+        _guestProfileId,
+        DemoCatalogue.functionsTopicId,
+      );
+      topics.add(
+        TopicPlanInput(
           subjectId: DemoCatalogue.mathematicsSubjectId,
           topicId: DemoCatalogue.functionsTopicId,
-          topicTitle: 'Functions and Graphs (demo)',
-          masteryEstimate: 0,
-          attemptsCount: 0,
+          topicTitle: DemoCatalogue.functionsTopicTitle,
+          masteryEstimate: mastery?['mastery_estimate'] as double? ?? 0,
+          attemptsCount: mastery?['attempts_count'] as int? ?? 0,
         ),
-    ];
+      );
+    }
 
     final plan = StudyPlanGenerator.generate(
       topics: topics,

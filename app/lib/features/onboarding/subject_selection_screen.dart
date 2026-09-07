@@ -83,7 +83,7 @@ class SubjectSelectionScreen extends ConsumerWidget {
                     : () {
                         ref.read(onboardingCompleteProvider.notifier).state =
                             true;
-                        context.go('/home');
+                        context.go('/onboarding/diagnostic');
                       },
                 child: Text(
                   selected.isEmpty

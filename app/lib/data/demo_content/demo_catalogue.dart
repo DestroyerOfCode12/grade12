@@ -14,6 +14,7 @@ class DemoCatalogue {
 
   static const mathematicsSubjectId = 'demo-subject-mathematics';
   static const functionsTopicId = 'demo-topic-functions';
+  static const functionsTopicTitle = 'Functions and Graphs (demo)';
   static const linearFunctionsLessonId = 'demo-lesson-linear-functions';
   static const checkpointQuizId = 'demo-quiz-functions-checkpoint';
 

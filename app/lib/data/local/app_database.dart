@@ -105,6 +105,20 @@ class AppDatabase {
       );
       CREATE INDEX IF NOT EXISTS idx_local_study_sessions_profile_date
         ON local_study_sessions (profile_id, scheduled_for);
+
+      -- Guest-mode / offline mirror of mastery_scores. Written first by the diagnostic
+      -- assessment (features/onboarding/diagnostic_assessment_screen.dart) and read by the study
+      -- planner instead of the "every topic starts at zero" default it used before that screen
+      -- existed (docs/CONTINUATION.md).
+      CREATE TABLE IF NOT EXISTS local_mastery_scores (
+        profile_id TEXT NOT NULL,
+        topic_id TEXT NOT NULL,
+        subject_id TEXT NOT NULL,
+        mastery_estimate REAL NOT NULL DEFAULT 0,
+        attempts_count INTEGER NOT NULL DEFAULT 0,
+        last_attempt_at TEXT,
+        PRIMARY KEY (profile_id, topic_id)
+      );
     ''');
   }
 
@@ -247,6 +261,46 @@ class AppDatabase {
     _db.execute(
       'UPDATE local_study_sessions SET status = ?, completed_at = ? WHERE id = ?',
       [status, completedAtIso, sessionId],
+    );
+  }
+
+  // ---------------------------------------------------------------------------------------
+  // Mastery (guest/offline mirror of mastery_scores)
+  // ---------------------------------------------------------------------------------------
+
+  Map<String, Object?>? masteryScore(String profileId, String topicId) {
+    final result = _db.select(
+      'SELECT * FROM local_mastery_scores WHERE profile_id = ? AND topic_id = ?',
+      [profileId, topicId],
+    );
+    return result.isEmpty ? null : result.first;
+  }
+
+  void upsertMasteryScore({
+    required String profileId,
+    required String topicId,
+    required String subjectId,
+    required double masteryEstimate,
+    required int attemptsCount,
+  }) {
+    _db.execute(
+      '''
+      INSERT INTO local_mastery_scores
+        (profile_id, topic_id, subject_id, mastery_estimate, attempts_count, last_attempt_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT(profile_id, topic_id) DO UPDATE SET
+        mastery_estimate = excluded.mastery_estimate,
+        attempts_count = excluded.attempts_count,
+        last_attempt_at = excluded.last_attempt_at
+      ''',
+      [
+        profileId,
+        topicId,
+        subjectId,
+        masteryEstimate,
+        attemptsCount,
+        DateTime.now().toIso8601String(),
+      ],
     );
   }
 

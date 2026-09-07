@@ -1,6 +1,6 @@
 // Smoke test for critical flow #1 (section 16): "A new learner enters guest mode and selects
 // subjects." Runs the real app widget tree (no Supabase configured => local dev mode) against an
-// in-memory local database, and walks splash -> subject selection -> home.
+// in-memory local database, and walks splash -> subject selection -> diagnostic assessment -> home.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -63,6 +63,24 @@ void main() {
       'Continue (1 selected)',
     );
     await tester.tap(continueButton);
+    await tester.pumpAndSettle();
+
+    // Landed on the diagnostic assessment for the demo Mathematics topic.
+    expect(find.text('Quick Check'), findsOneWidget);
+    expect(find.text('Mathematics'), findsOneWidget);
+    expect(find.textContaining('Start ('), findsOneWidget);
+
+    // Skip it — this is the "learner declines the diagnostic" path; the study plan generator
+    // already treats that the same as "not started", so nothing further to assert about mastery
+    // here specifically (see test/domain/study_plan_repository_test.dart for that).
+    await tester.tap(find.text('Skip this subject'));
+    await tester.pumpAndSettle();
+
+    // Only one topic is available in local dev mode, so skipping it goes straight to the summary.
+    expect(find.text('Your starting point'), findsOneWidget);
+    expect(find.text('Skipped'), findsOneWidget);
+
+    await tester.tap(find.text('Continue to MatricQuest SA'));
     await tester.pumpAndSettle();
 
     // Landed on Home with bottom navigation visible. "Learn"/"Papers" appear twice each (once as

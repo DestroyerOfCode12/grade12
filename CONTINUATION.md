@@ -3,7 +3,7 @@
 **Read this before continuing work.** It records exactly what is done, tested, and verified vs.
 what is stubbed or missing, so the next session can continue without re-deriving or re-building
 anything already complete. Written 2026-09-02 (session 1), updated 2026-09-06 (session 2 — admin
-dashboard), updated 2026-09-07 (session 3 — study planner).
+dashboard), updated 2026-09-07 (session 3 — study planner; session 4 — diagnostic assessment).
 
 ## Environment this was built in
 
@@ -117,20 +117,52 @@ dashboard), updated 2026-09-07 (session 3 — study planner).
   over to the next day rather than being dropped. Covered by 9 unit tests (verified).
 - `StudyPlanRepository` — Supabase-backed (reads `topics` for the learner's selected subjects +
   `mastery_scores` for the signed-in profile, writes `study_plans`/`study_sessions`) and a
-  local/guest mirror (`local_study_sessions` table added to `app_database.dart`) with the same
-  "not started" default for every topic, since guest mode doesn't track per-topic mastery yet.
+  local/guest mirror (`local_study_sessions` table added to `app_database.dart`). As of session 4,
+  the local path reads real mastery from `local_mastery_scores` (written by the diagnostic
+  assessment) instead of a hardcoded zero — see below.
   Covered by 5 repository tests against the local path (verified) — the Supabase path's query
   shape (`study_plans!inner(...)` embedded filter) has NOT been exercised against a real Postgres
   instance yet; sanity-check it the same time you finally run the pgTAP suite.
 - `StudyPlannerScreen` (generate/regenerate, mark done/skip, deep-links into the demo lesson) plus
   an "Upcoming study sessions" card on the Home dashboard. Reachable via `/planner`, not a bottom-
   nav tab (matches the brief's own five-tab list). 1 widget smoke test (empty state) — verified.
-- `flutter analyze --fatal-infos`: 0 issues. `flutter test`: **32/32 passing** (up from 17 —
-  9 generator + 5 repository + 1 widget test added this session, all previous tests still green).
 - **Not built**: no UI takes a target exam date, term structure, or past-paper performance as
   input yet — the generator accepts them as `TopicPlanInput`/parameters in principle (see that
-  file's doc comment) but nothing upstream computes or passes them in. Diagnostic-assessment
-  scores (still not implemented, see below) would be the natural first real input to add.
+  file's doc comment) but nothing upstream computes or passes them in.
+
+### Diagnostic assessment (session 4, `app/lib/features/onboarding/diagnostic_assessment_screen.dart`)
+- Section 9's "run a short diagnostic assessment for each selected subject" / section 11 screen 4.
+  Sits between subject selection and Home in onboarding (`/onboarding/diagnostic`); "Skip for now"
+  on subject selection still bypasses the whole thing, matching how it worked before this screen
+  existed.
+- `MasteryRepository` (`app/lib/data/repositories/mastery_repository.dart`) is the new single
+  place any feature should call to update a topic's mastery — `recordAttempt()` sets the estimate
+  directly on a topic's first-ever attempt (recency weight 1.0, so a real signal isn't diluted
+  against a meaningless zero baseline) and blends subsequent attempts in at
+  `MasteryCalculator`'s normal 0.35 weight. The diagnostic screen is this repository's first
+  caller; a future quiz/lesson-checkpoint feature should call the same method rather than growing
+  a second mastery-update path — this was flagged as a gap in session 3's CONTINUATION notes
+  before this repository existed to close it.
+- `DiagnosticRepository` finds any `quiz_kind = 'diagnostic'` quiz for the learner's selected
+  subjects' topics (Supabase) or the one embedded demo Mathematics topic (local/guest mode, reusing
+  the checkpoint quiz's MCQ question — the diagnostic UI only supports multiple-choice today, so
+  the seed's `numeric` question is deliberately left out of the diagnostic quiz rather than
+  included and silently unanswerable).
+- `local_mastery_scores` table added to `app_database.dart`; `study_plans`/`0002_math_demo_content.sql`
+  seed got a new `diagnostic`-kind quiz row reusing the existing MCQ question.
+- `flutter analyze --fatal-infos`: 0 issues. `flutter test`: **37/37 passing** (up from 32 — 5
+  mastery-repository tests added this session; the existing guest-mode critical-flow widget test
+  was extended to walk through the diagnostic screen's skip path rather than getting a second,
+  separate test).
+- **Known gap, not a bug to "fix" by removing the seed question — fix the UI instead**: the
+  diagnostic screen's question view only renders `question.options`, so a non-multiple-choice
+  question (e.g. `numeric`, `short_answer`) would render with no answerable options and a
+  permanently-disabled "Check answer" button — `DiagnosticRepository` does NOT filter by question
+  kind, it was the seed data that was curated to avoid this (the diagnostic quiz includes only the
+  MCQ question, deliberately excluding the seed's `numeric` one). Adding a diagnostic quiz with a
+  non-MCQ question anywhere (admin dashboard included) will hit this until the UI handles other
+  kinds. The Supabase path's `topics!inner(...)` embedded-filter query is also unexercised against
+  a real Postgres instance, same caveat as the study planner above.
 
 ## What is STUBBED (present but intentionally minimal)
 
@@ -139,8 +171,8 @@ dashboard), updated 2026-09-07 (session 3 — study planner).
   faking it.
 - **"Play" bottom-nav tab**: placeholder screen. No Daily Challenge, no Boss Battle.
 - **Quest Coach**: Edge Function exists; no chat UI screen in the app yet.
-- **Diagnostic assessment**: not implemented — onboarding jumps straight from subject selection to
-  home, so every topic starts a study plan at "not started" rather than a measured baseline.
+- **Diagnostic assessment**: only multiple-choice questions are supported (see the "known gap"
+  note above); only one topic has diagnostic content (the demo Mathematics topic).
 
 ## What is MISSING entirely (not started)
 
@@ -176,18 +208,19 @@ dashboard), updated 2026-09-07 (session 3 — study planner).
 
 1. Get a local Supabase stack running (`supabase start`) and actually execute
    `supabase/tests/rls_and_idempotency_test.sql` — this is the highest-priority unverified piece,
-   and it also verifies both the admin dashboard's AuthGate assumption and the study planner's
-   Supabase-backed query path (the `study_plans!inner(...)` embedded filter), neither of which has
-   touched a real Postgres instance yet.
+   and it also verifies the admin dashboard's AuthGate assumption, the study planner's
+   `study_plans!inner(...)` embedded filter, and the diagnostic assessment's `topics!inner(...)`
+   one — none of which have touched a real Postgres instance yet.
 2. Finish the Android release signing setup and get a real device install working end to end
    against a live Supabase project (not local dev mode) — validates the full stack, not just the
    guest-mode local path.
 3. Now that the admin dashboard exists: expand verified subject content through it, following
    section 2's manual-review requirement — this was blocked on the dashboard existing; it no
-   longer is. This would also give the study planner more than one topic to actually schedule.
-4. Build the diagnostic assessment (section 9) — it's the natural next real input into the study
-   planner's `TopicPlanInput.masteryEstimate`, replacing the current "every topic starts at zero"
-   default with an actual measured baseline.
+   longer is. This would also give the study planner and diagnostic assessment more than one topic
+   to actually work with.
+4. Extend the diagnostic (and quiz-taking generally) UI to handle non-multiple-choice questions —
+   see the "known gap" note under session 4 above — before adding any diagnostic content beyond
+   MCQ through the admin dashboard.
 
 ## Files worth reading first if you're resuming cold
 

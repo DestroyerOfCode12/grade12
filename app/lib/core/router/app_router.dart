@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../features/dashboard/home_dashboard_screen.dart';
 import '../../features/gamification/results_screen.dart';
 import '../../features/lesson/lesson_screen.dart';
+import '../../features/onboarding/diagnostic_assessment_screen.dart';
 import '../../features/onboarding/splash_screen.dart';
 import '../../features/onboarding/subject_selection_screen.dart';
 import '../../features/papers/paper_detail_screen.dart';
@@ -19,8 +20,9 @@ import '../../widgets/app_shell.dart';
 /// product brief has a route yet (Quest Coach chat UI, Boss Battle, Achievements, Leaderboard,
 /// Downloads, Privacy/export/delete, Help — see docs/CONTINUATION.md for the tracked remainder).
 /// The five bottom-nav sections (Home/Learn/Papers/Play/Profile, section 11) are wired via
-/// [AppShell] with [StatefulShellRoute]; Study Planner (screen 20) is reached from Home rather
-/// than being its own bottom-nav tab, matching the brief's own list of five tabs.
+/// [AppShell] with [StatefulShellRoute]; Study Planner (screen 20) and the diagnostic assessment
+/// (screen 4, part of onboarding) are reached by explicit navigation rather than being bottom-nav
+/// tabs, matching the brief's own five-tab list.
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: '/splash',
@@ -32,6 +34,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/onboarding/subjects',
         builder: (context, state) => const SubjectSelectionScreen(),
+      ),
+      GoRoute(
+        path: '/onboarding/diagnostic',
+        builder: (context, state) => const DiagnosticAssessmentScreen(),
       ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>

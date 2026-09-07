@@ -13,6 +13,7 @@ declare
   v_topic_id uuid;
   v_lesson_id uuid;
   v_quiz_id uuid;
+  v_diagnostic_quiz_id uuid;
   v_q1 uuid; v_q1a uuid; v_q1b uuid; v_q1c uuid; v_q1d uuid;
   v_q2 uuid;
   v_paper_id uuid;
@@ -80,6 +81,17 @@ begin
 
   insert into quiz_questions (quiz_id, question_id, sort_order) values
   (v_quiz_id, v_q1, 1), (v_quiz_id, v_q2, 2);
+
+  -- Diagnostic quiz for onboarding (section 9/11 screen 4). Reuses the MCQ question above rather
+  -- than authoring new content — this is demo content either way (section 2), and the mobile
+  -- diagnostic UI only supports multiple-choice questions today, so the numeric v_q2 is left out
+  -- rather than included and silently unanswerable.
+  insert into quizzes (topic_id, title, quiz_kind, content_status)
+  values (v_topic_id, 'Functions diagnostic (demo)', 'diagnostic', 'published')
+  returning id into v_diagnostic_quiz_id;
+
+  insert into quiz_questions (quiz_id, question_id, sort_order) values
+  (v_diagnostic_quiz_id, v_q1, 1);
 
   -- One demo past paper record so the Papers Library / offline-download / results flow is testable.
   -- No actual PDF is bundled; paper_assets.storage_path points at a placeholder that the app must

@@ -1,8 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/local/app_database.dart';
+import '../data/repositories/diagnostic_repository.dart';
 import '../data/repositories/gamification_repository.dart';
 import '../data/repositories/lesson_repository.dart';
+import '../data/repositories/mastery_repository.dart';
 import '../data/repositories/papers_repository.dart';
 import '../data/repositories/quiz_repository.dart';
 import '../data/repositories/study_plan_repository.dart';
@@ -61,6 +63,26 @@ final studyPlanRepositoryProvider = Provider<StudyPlanRepository>((ref) {
     return SupabaseStudyPlanRepository(client, userId);
   }
   return LocalStudyPlanRepository(ref.watch(appDatabaseProvider));
+});
+
+final masteryRepositoryProvider = Provider<MasteryRepository>((ref) {
+  final client = ref.watch(supabaseClientProvider);
+  final userId = ref.watch(currentUserIdProvider);
+  if (client != null && userId != null) {
+    return SupabaseMasteryRepository(client, userId);
+  }
+  return LocalMasteryRepository(ref.watch(appDatabaseProvider));
+});
+
+final diagnosticRepositoryProvider = Provider<DiagnosticRepository>((ref) {
+  final client = ref.watch(supabaseClientProvider);
+  if (client != null) {
+    return SupabaseDiagnosticRepository(
+      client,
+      ref.watch(quizRepositoryProvider),
+    );
+  }
+  return LocalDiagnosticRepository();
 });
 
 /// Learner's selected subjects, held in memory for the vertical slice. Persisted to
